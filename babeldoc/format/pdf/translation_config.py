@@ -196,6 +196,7 @@ class TranslationConfig:
         skip_formula_offset_calculation: bool = False,
         term_extraction_translator: BaseTranslator | None = None,
         metadata_extra_data: str | None = None,
+        save_translation_corpus: bool = False,
     ):
         self.translator = translator
         self.term_extraction_translator = term_extraction_translator or translator
@@ -337,6 +338,9 @@ class TranslationConfig:
         self.skip_formula_offset_calculation = skip_formula_offset_calculation
 
         self.metadata_extra_data = metadata_extra_data
+        self.save_translation_corpus = save_translation_corpus
+        self.page_number_offset = 0
+        self.generated_translation_corpus_path: Path | None = None
 
         self.term_extraction_token_usage: dict[str, int] = {
             "total_tokens": 0,
@@ -483,6 +487,7 @@ class TranslateResult:
     no_watermark_dual_pdf_path: Path | None
     peak_memory_usage: int | None
     auto_extracted_glossary_path: Path | None
+    translation_corpus_path: Path | None
     total_valid_character_count: int | None
     total_valid_text_token_count: int | None
 
@@ -491,6 +496,7 @@ class TranslateResult:
         mono_pdf_path: Path | None,
         dual_pdf_path: Path | None,
         auto_extracted_glossary_path: Path | None = None,
+        translation_corpus_path: Path | None = None,
     ):
         self.mono_pdf_path = mono_pdf_path
         self.dual_pdf_path = dual_pdf_path
@@ -501,6 +507,7 @@ class TranslateResult:
         self.no_watermark_dual_pdf_path = dual_pdf_path
 
         self.auto_extracted_glossary_path = auto_extracted_glossary_path
+        self.translation_corpus_path = translation_corpus_path
         self.total_valid_character_count = None
         self.total_valid_text_token_count = None
 
@@ -543,6 +550,11 @@ class TranslateResult:
         ):
             result.append(
                 f"\tAuto-extracted glossary: {self.auto_extracted_glossary_path}"
+            )
+
+        if hasattr(self, "translation_corpus_path") and self.translation_corpus_path:
+            result.append(
+                f"\tTranslation corpus JSON: {self.translation_corpus_path}"
             )
 
         if hasattr(self, "peak_memory_usage") and self.peak_memory_usage:

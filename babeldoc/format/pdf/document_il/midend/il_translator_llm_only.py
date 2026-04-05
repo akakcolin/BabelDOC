@@ -177,7 +177,11 @@ class ILTranslatorLLMOnly:
                             page,
                             executor,
                             pbar,
-                            tracker.new_page(),
+                            tracker.new_page(
+                                page_number=self.translation_config.page_number_offset
+                                + page.page_number
+                                + 1
+                            ),
                             executor2,
                             translated_ids,
                         )
@@ -188,6 +192,7 @@ class ILTranslatorLLMOnly:
             logger.debug(f"save translate tracking to {path}")
             with Path(path).open("w", encoding="utf-8") as f:
                 f.write(tracker.to_json())
+        self.il_translator.save_translation_corpus(tracker)
         logger.info(
             f"Translation completed. Total: {self.total_count}, Successful: {self.ok_count}, Fallback: {self.fallback_count}"
         )
@@ -366,7 +371,13 @@ class ILTranslatorLLMOnly:
             cross_page_paragraphs = [last_curr_paragraph, first_next_paragraph]
             cross_page_pages = [page_curr, page_next]
             batch_paragraph = BatchParagraph(
-                cross_page_paragraphs, cross_page_pages, tracker.new_cross_page()
+                cross_page_paragraphs,
+                cross_page_pages,
+                tracker.new_cross_page(
+                    page_number=self.translation_config.page_number_offset
+                    + page_curr.page_number
+                    + 1
+                ),
             )
 
             self.mid += 1
@@ -442,7 +453,15 @@ class ILTranslatorLLMOnly:
                 p1.unicode
             ) + self.calc_token_count(p2.unicode)
 
-            batch = BatchParagraph([p1, p2], [page, page], tracker.new_cross_column())
+            batch = BatchParagraph(
+                [p1, p2],
+                [page, page],
+                tracker.new_cross_column(
+                    page_number=self.translation_config.page_number_offset
+                    + page.page_number
+                    + 1
+                ),
+            )
             self.mid += 1
             executor.submit(
                 self.translate_paragraph,

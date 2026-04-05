@@ -120,35 +120,32 @@ class DocumentTranslateTracker:
         # Track paragraphs that are combined due to cross-column detection within the same page
         self.cross_column = []
 
-    def new_page(self):
-        page = PageTranslateTracker()
+    def new_page(self, page_number: int | None = None):
+        page = PageTranslateTracker(page_number=page_number)
         self.page.append(page)
         return page
 
-    def new_cross_page(self):
-        page = PageTranslateTracker()
+    def new_cross_page(self, page_number: int | None = None):
+        page = PageTranslateTracker(page_number=page_number)
         self.cross_page.append(page)
         return page
 
-    def new_cross_column(self):
+    def new_cross_column(self, page_number: int | None = None):
         """Create and return a new PageTranslateTracker dedicated to cross-column merging."""
-        page = PageTranslateTracker()
+        page = PageTranslateTracker(page_number=page_number)
         self.cross_column.append(page)
         return page
 
     def to_json(self):
         pages = []
         for page in self.page:
-            paragraphs = self.convert_paragraph(page)
-            pages.append({"paragraph": paragraphs})
+            pages.append(self.convert_paragraph(page))
         cross_page = []
         for page in self.cross_page:
-            paragraphs = self.convert_paragraph(page)
-            cross_page.append({"paragraph": paragraphs})
+            cross_page.append(self.convert_paragraph(page))
         cross_column = []
         for page in self.cross_column:
-            paragraphs = self.convert_paragraph(page)
-            cross_column.append({"paragraph": paragraphs})
+            cross_column.append(self.convert_paragraph(page))
         return json.dumps(
             {
                 "cross_page": cross_page,
@@ -184,6 +181,8 @@ class DocumentTranslateTracker:
                 "input": i_str,
                 "output": o_str,
                 "pdf_unicode": pdf_unicode,
+                "debug_id": getattr(para, "debug_id", None),
+                "layout_label": getattr(para, "layout_label", None),
                 "llm_translate_trackers": llm_translate_trackers_json,
                 "placeholders": placeholders_json,
                 "multi_paragraph_id": getattr(para, "multi_paragraph_id", None),
@@ -192,12 +191,16 @@ class DocumentTranslateTracker:
             paragraphs.append(
                 paragraph_json,
             )
-        return paragraphs
+        page_json = {"paragraph": paragraphs}
+        if getattr(page, "page_number", None) is not None:
+            page_json["page_number"] = page.page_number
+        return page_json
 
 
 class PageTranslateTracker:
-    def __init__(self):
+    def __init__(self, page_number: int | None = None):
         self.paragraph = []
+        self.page_number = page_number
 
     def new_paragraph(self):
         paragraph = ParagraphTranslateTracker()
@@ -347,7 +350,16 @@ class ILTranslator:
                 max_workers=self.translation_config.pool_max_workers,
             ) as executor:
                 for page in docs.page:
-                    self.process_page(page, executor, pbar, tracker.new_page())
+                    self.process_page(
+                        page,
+                        executor,
+                        pbar,
+                        tracker.new_page(
+                            page_number=self.translation_config.page_number_offset
+                            + page.page_number
+                            + 1
+                        ),
+                    )
 
         path = self.translation_config.get_working_file_path("translate_tracking.json")
 
@@ -355,6 +367,21 @@ class ILTranslator:
             logger.debug(f"save translate tracking to {path}")
             with Path(path).open("w", encoding="utf-8") as f:
                 f.write(tracker.to_json())
+        self.save_translation_corpus(tracker)
+
+    def save_translation_corpus(self, tracker: DocumentTranslateTracker) -> None:
+        if not self.translation_config.save_translation_corpus:
+            return
+
+        basename = Path(self.translation_config.input_file).stem
+        debug_suffix = ".debug" if self.translation_config.debug else ""
+        corpus_path = self.translation_config.get_output_file_path(
+            f"{basename}{debug_suffix}.{self.translation_config.lang_out}.corpus.json"
+        )
+        logger.info("save translation corpus to %s", corpus_path)
+        with corpus_path.open("w", encoding="utf-8") as f:
+            f.write(tracker.to_json())
+        self.translation_config.generated_translation_corpus_path = corpus_path
 
     def find_title_paragraph(self, docs: Document) -> PdfParagraph | None:
         """Find the first paragraph with layout_label 'title' in the document.

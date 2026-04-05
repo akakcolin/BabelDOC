@@ -1408,7 +1408,10 @@ class PDFCreater:
                     )
 
             return TranslateResult(
-                mono_out_path, dual_out_path, auto_extracted_glossary_path
+                mono_out_path,
+                dual_out_path,
+                auto_extracted_glossary_path,
+                translation_config.generated_translation_corpus_path,
             )
         except Exception:
             logger.exception(

@@ -674,6 +674,7 @@ def do_translate(
                                 part_config.output_dir = (
                                     translation_config.get_part_output_dir(i)
                                 )
+                                part_config.page_number_offset = split_point.start_page
 
                                 assert id(
                                     part_config.shared_context_cross_split_part

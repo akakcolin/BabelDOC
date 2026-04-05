@@ -1,4 +1,5 @@
 import logging
+import json
 from pathlib import Path
 
 from pymupdf import Document
@@ -128,6 +129,7 @@ class ResultMerger:
                 merged_no_watermark_dual_path = None
 
         auto_extracted_glossary_path = None
+        translation_corpus_path = None
         if (
             self.config.save_auto_extracted_glossary
             and self.config.shared_context_cross_split_part.auto_extracted_glossary
@@ -143,11 +145,35 @@ class ResultMerger:
                     self.config.shared_context_cross_split_part.auto_extracted_glossary.to_csv()
                 )
 
+        corpus_paths = [
+            r.translation_corpus_path
+            for r in sorted_results.values()
+            if getattr(r, "translation_corpus_path", None)
+        ]
+        if self.config.save_translation_corpus and corpus_paths:
+            translation_corpus_path = self.config.get_output_file_path(
+                f"{basename}{'.debug' if self.config.debug else ''}.{self.config.lang_out}.corpus.json"
+            )
+            merged_corpus = {
+                "cross_page": [],
+                "cross_column": [],
+                "page": [],
+            }
+            for corpus_path in corpus_paths:
+                with Path(corpus_path).open("r", encoding="utf-8") as f:
+                    corpus_data = json.load(f)
+                for key in ("cross_page", "cross_column", "page"):
+                    merged_corpus[key].extend(corpus_data.get(key, []))
+            with translation_corpus_path.open("w", encoding="utf-8") as f:
+                logger.info("save merged translation corpus to %s", translation_corpus_path)
+                json.dump(merged_corpus, f, ensure_ascii=False, indent=2)
+
         # Create merged result
         merged_result = TranslateResult(
             mono_pdf_path=merged_mono_path,
             dual_pdf_path=merged_dual_path,
             auto_extracted_glossary_path=auto_extracted_glossary_path,
+            translation_corpus_path=translation_corpus_path,
         )
         merged_result.no_watermark_mono_pdf_path = merged_no_watermark_mono_path
         merged_result.no_watermark_dual_pdf_path = merged_no_watermark_dual_path

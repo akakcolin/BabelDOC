@@ -313,6 +313,12 @@ def create_parser():
         help="Save automatically extracted glossary terms to a CSV file in the output directory.",
     )
     translation_group.add_argument(
+        "--save-translation-corpus",
+        action="store_true",
+        default=False,
+        help="Save intermediate translation corpus as a JSON file in the output directory.",
+    )
+    translation_group.add_argument(
         "--disable-graphic-element-process",
         action="store_true",
         default=False,
@@ -683,6 +689,7 @@ async def main():
             primary_font_family=args.primary_font_family,
             only_include_translated_page=args.only_include_translated_page,
             save_auto_extracted_glossary=args.save_auto_extracted_glossary,
+            save_translation_corpus=args.save_translation_corpus,
             enable_graphic_element_process=not args.disable_graphic_element_process,
             merge_alternating_line_numbers=args.merge_alternating_line_numbers,
             skip_translation=args.skip_translation,
